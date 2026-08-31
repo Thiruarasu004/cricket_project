@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'cricket_app',
+    'user_app.apps.UserConfig',
     'rest_framework',
     'rest_framework.authtoken',
     'django_filters',

@@ -1,6 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from user_app.serializers import user_serializer
+from user_app.serializers import UserSerializer
 from django.contrib.auth.models import User
 from rest_framework import status
 from django.contrib.auth import authenticate
@@ -13,14 +13,14 @@ from rest_framework.permissions import IsAuthenticated
 class Registration(APIView):
 
     def post(self,request):
-        serializer=user_serializer(data=request.data)
+        serializer=UserSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data,status=status.HTTP_201_CREATED)
         else:
-            return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors,status=status.HTTP_401_UNAUTHORIZED)
 
-class login(APIView):
+class LoginView(APIView):
 
     def post(self,request):
         username = request.data.get("username")
@@ -37,12 +37,13 @@ class login(APIView):
                 },
                 status=status.HTTP_200_OK
             )
-        return Response(
-            {"message": "Invalid username or password"},
-            status=status.HTTP_400_BAD_REQUEST
-        )   
+        else:
+            return Response(
+                {"message": "Invalid username or password"},
+                status=status.HTTP_400_BAD_REQUEST
+            )   
 
-class logout(APIView):
+class LogoutView(APIView):
 
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
