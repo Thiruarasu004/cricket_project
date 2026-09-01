@@ -18,7 +18,7 @@ class Registration(APIView):
             serializer.save()
             return Response(serializer.data,status=status.HTTP_201_CREATED)
         else:
-            return Response(serializer.errors,status=status.HTTP_401_UNAUTHORIZED)
+            return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
 class LoginView(APIView):
 
@@ -40,7 +40,7 @@ class LoginView(APIView):
         else:
             return Response(
                 {"message": "Invalid username or password"},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_401_UNAUTHORIZED
             )   
 
 class LogoutView(APIView):

@@ -24,6 +24,7 @@ class AuthenticationTestCase(APITestCase):
             email="thiru@gmail.com",
             password="123456"
         )
+
         data = {"username": "thiru","password": "123456"}
         response = self.client.post(reverse("login"),data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -34,6 +35,6 @@ class AuthenticationTestCase(APITestCase):
         user = User.objects.create_user(username="thiru",password="123456")
         token = Token.objects.get(user=user)
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
-        response = self.client.postreverse("logout")
+        response = self.client.post(reverse("logout"))
         self.assertEqual(response.status_code,status.HTTP_200_OK)
         self.assertFalse(Token.objects.filter(user=user).exists())
