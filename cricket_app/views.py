@@ -22,10 +22,11 @@ from rest_framework import generics
 from django.shortcuts import get_object_or_404
 from collections import defaultdict
 from datetime import date
+from rest_framework import status
 from rest_framework import serializers
 from cricket_app.permission import IsAdminOrAutenticatedReadOnly
 from rest_framework.filters import OrderingFilter
-
+from django.db.models import Q
 
 
 class team_list(generics.ListCreateAPIView):
@@ -40,27 +41,82 @@ class team_detail(generics.RetrieveUpdateDestroyAPIView):
 
 
 class internationalseriesannouncement_list(generics.ListAPIView):
-    serializer_class=international_series_announcement_serializer
+    serializer_class = international_series_announcement_serializer
     permission_classes = [IsAdminOrAutenticatedReadOnly]
 
     def get_queryset(self):
-        current_date=date.today()
+        current_date = date.today()
+
         return international_series_announcement_model.objects.filter(
             end_date__gte=current_date
         )
 
-class internationalseriesannouncement_create(generics.CreateAPIView):
-    serializer_class=international_series_announcement_serializer
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+        if not queryset.exists():
+            return Response(
+                {"message": "No international series have been announced."},
+                status=status.HTTP_200_OK
+            )
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class internationalseriesannouncement_detail(generics.ListAPIView):
+    serializer_class = international_series_announcement_serializer
     permission_classes = [IsAdminOrAutenticatedReadOnly]
 
-    def perform_create(self, serializer):
-        current_date=date.today()
-        if current_date<=serializer.validated_data["end_date"]:
-            serializer.save()
-        else:
-            raise serializers.ValidationError(
-                 "Series announcement end date cannot be in the past."
+    def get_queryset(self):
+        current_date = date.today()
+        team_1 = self.request.query_params.get("team_1")
+        team_2 = self.request.query_params.get("team_2")
+        queryset = international_series_announcement_model.objects.filter(
+            end_date__gte=current_date
+        )
+        if team_1 and team_2:
+            queryset = queryset.filter(
+                Q(
+                    team_1__country=team_1,team_2__country=team_2
+                 ) |
+                Q(
+                    team_1__country=team_2,team_2__country=team_1
+                )
             )
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+        team_1 = request.query_params.get("team_1")
+        team_2 = request.query_params.get("team_2")
+
+        if not queryset.exists():
+
+            if team_1 and team_2:
+                message = (
+                    f"No international series found between "
+                    f"{team_1} and {team_2}."
+                )
+            else:
+                message = "No international series have been announced."
+
+            return Response(
+                {"message": message},
+                status=status.HTTP_200_OK
+            )
+
+        serializer = self.get_serializer(queryset, many=True)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+class internationalseriesannouncement_create(generics.CreateAPIView):
+    serializer_class = international_series_announcement_serializer
+    permission_classes = [IsAdminOrAutenticatedReadOnly]
 
 
 class internationalmatchannouncement_list(generics.ListAPIView):
@@ -72,7 +128,20 @@ class internationalmatchannouncement_list(generics.ListAPIView):
         series=self.kwargs.get("pk")
         return international_match_announcement_model.objects.filter(
             match_date__gte=current_date,series_number=series
-        )
+        ).order_by("match_date", "match_number")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+        if not queryset.exists():
+            return Response(
+                {"message": "No international matches have been announced."},
+                status=status.HTTP_200_OK
+            )
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
 
 class internationalmatchannouncement_create(generics.CreateAPIView):
     serializer_class=international_match_announcement_serializer
@@ -80,7 +149,7 @@ class internationalmatchannouncement_create(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         current_date=date.today()
-        if current_date<=serializer.validated_data["match_date"]:
+        if current_date<serializer.validated_data["match_date"]:
             serializer.save()
         else:
             raise serializers.ValidationError(
@@ -397,7 +466,9 @@ class teamstatlist(generics.ListAPIView):
     serializer_class = team_stat_serializer
     permission_classes = [IsAdminOrAutenticatedReadOnly]
     filter_backends = [OrderingFilter]
-    ordering_fields = ["rating", "team_updated_score"]
+    ordering_fields = ["-rating", "team_updated_score"]
+    ordering = ["-rating", "-team_updated_score"]
+
 
     def get_queryset(self):
         month = self.request.query_params.get("month")

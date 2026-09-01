@@ -15,18 +15,39 @@ class team_serializer(serializers.ModelSerializer):
 
 
 class international_series_announcement_serializer(serializers.ModelSerializer):
+    team_1 = serializers.SlugRelatedField(
+        queryset=team_model.objects.all(),
+        slug_field="country"
+    )
+    team_2 = serializers.SlugRelatedField(
+        queryset=team_model.objects.all(),
+        slug_field="country"
+    )
+
     class Meta:
         model=international_series_announcement_model
         fields="__all__"
+
     def validate(self, attrs):
         if attrs["team_1"] == attrs["team_2"]:
             raise serializers.ValidationError(
                 "Team 1 and Team 2 cannot be the same."
             )
+        if attrs["start_date"] < date.today():
+            raise serializers.ValidationError(
+                "Start date cannot be in the past."
+            )
+        if attrs["start_date"] > attrs["end_date"]:
+            raise serializers.ValidationError(
+                "Start date cannot be after end date."
+            )
         return attrs
 
 
 class international_match_announcement_serializer(serializers.ModelSerializer):
+    series_number = serializers.PrimaryKeyRelatedField(
+        queryset=international_series_announcement_model.objects.all()
+    )
 
     class Meta:
         model=international_match_announcement_model
@@ -34,10 +55,19 @@ class international_match_announcement_serializer(serializers.ModelSerializer):
 
     def validate(self, data):
         series = data["series_number"]
+        match_number = data["match_number"]
 
+        if match_number > series.total_matches:
+            raise serializers.ValidationError(
+                f"This series has only {series.total_matches} matches."
+            )
+        if not (series.start_date <= data["match_date"] <= series.end_date):
+            raise serializers.ValidationError(
+                "Match date should be between the series start and end dates."
+            )
         queryset = international_match_announcement_model.objects.filter(
             series_number=series,
-            match_number=data["match_number"]
+            match_number=match_number
         )
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
@@ -45,7 +75,6 @@ class international_match_announcement_serializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "this matchnumber of the series is already added"
             )
-
         return data
 
     def create(self, validated_data):
